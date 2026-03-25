@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ═══════════════════════════════════════════════════════════════════════
+  Log4j2 Configuration
+  ═══════════════════════════════════════════════════════════════════════
+
+  Log4j2 is the logging framework used throughout this automation project.
+  It replaces direct System.out.println() calls with structured, levelled,
+  and filterable log output.
+
+  LOG LEVELS (lowest → highest severity):
+    TRACE → ultra-verbose, per-line tracing (almost never used in tests)
+    DEBUG → developer-level details (e.g. "Clicking element: By.id('btn')")
+    INFO  → normal operational messages (e.g. "Test started", "URL navigated to")
+    WARN  → unexpected but recoverable situations (e.g. "Driver is null")
+    ERROR → failures that need attention (e.g. "Screenshot capture failed")
+    FATAL → application-breaking errors (rarely used in test frameworks)
+
+  Appenders determine WHERE log output goes.
+  Loggers  determine WHICH classes log and at what minimum level.
+  ═══════════════════════════════════════════════════════════════════════
+-->
+<Configuration status="WARN">
+    <!--
+      status="WARN": Log4j2's own internal log level.
+      Setting it to WARN suppresses the verbose Log4j2 startup messages
+      from appearing in the console.
+    -->
+
+    <Appenders>
+
+        <!--
+          Console Appender — prints log output to stdout (the terminal / CI build log).
+          Pattern breakdown:
+            %d{HH:mm:ss.SSS}  → timestamp (hours:minutes:seconds.milliseconds)
+            [%t]              → thread name — important for parallel test debugging
+            %-5level          → log level padded to 5 chars (e.g. "INFO " / "ERROR")
+            %logger{30}       → logger class name, truncated to 30 characters
+            %msg%n            → the actual log message, followed by a newline
+        -->
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout pattern="%d{HH:mm:ss.SSS} [%t] %-5level %logger{30} — %msg%n"/>
+        </Console>
+
+        <!--
+          Rolling File Appender — writes logs to a file that rolls over automatically.
+          This prevents log files from growing unboundedly over long test runs.
+
+          fileName:    the active log file always written to.
+          filePattern: naming pattern for archived (rolled) files.
+                       %d{yyyy-MM-dd} → roll daily by date.
+                       %i             → index for multiple rolls on the same day.
+                       .log.gz        → automatically GZip-compress old files to save disk space.
+
+          Policies (when to roll):
+            TimeBasedTriggeringPolicy → roll at midnight (new file each day).
+            SizeBasedTriggeringPolicy → also roll if file exceeds 10 MB mid-day.
+
+          DefaultRolloverStrategy max="10" → keep at most 10 archived files;
+            oldest are deleted automatically to prevent disk exhaustion.
+        -->
+        <RollingFile name="File"
+                     fileName="logs/automation.log"
+                     filePattern="logs/automation-%d{yyyy-MM-dd}-%i.log.gz">
+            <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %-5level %logger{36} — %msg%n"/>
+            <Policies>
+                <TimeBasedTriggeringPolicy/>
+                <SizeBasedTriggeringPolicy size="10MB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="10"/>
+        </RollingFile>
+
+    </Appenders>
+
+    <Loggers>
+
+        <!--
+          Suppress INFO/DEBUG noise from third-party libraries.
+          WebDriverManager prints a lot of download/version-detection INFO logs
+          that are not useful during test runs — set to WARN to hide them.
+          additivity="false" prevents these loggers from also propagating to the Root logger.
+        -->
+        <Logger name="io.github.bonigarcia" level="WARN" additivity="false">
+            <AppenderRef ref="Console"/>
+        </Logger>
+
+        <!--
+          Selenium's own internal logs (e.g. HTTP request/response to the WebDriver server)
+          are very verbose at INFO level. Set to WARN to keep console output clean.
+        -->
+        <Logger name="org.openqa.selenium" level="WARN" additivity="false">
+            <AppenderRef ref="Console"/>
+        </Logger>
+
+        <!--
+          Root Logger — the catch-all for any class not matched by a specific Logger above.
+          All framework classes (com.automation.*) log at INFO level by default.
+          To see DEBUG logs during development, change this to level="DEBUG".
+        -->
+        <Root level="INFO">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="File"/>
+        </Root>
+
+    </Loggers>
+
+</Configuration>

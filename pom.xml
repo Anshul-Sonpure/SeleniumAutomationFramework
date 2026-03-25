@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!--
+      ═══════════════════════════════════════════════════════════════════
+      Project Coordinates
+        groupId    — reverse-domain naming convention; identifies your org/team
+        artifactId — the name of this project's output JAR
+        version    — semantic versioning: MAJOR.MINOR.PATCH
+        packaging  — "jar" is the default; means Maven compiles to a JAR file
+      ═══════════════════════════════════════════════════════════════════
+    -->
+    <groupId>com.automation</groupId>
+    <artifactId>selenium-ui-framework</artifactId>
+    <version>1.0.0</version>
+    <packaging>jar</packaging>
+
+    <!--
+      ═══════════════════════════════════════════════════════════════════
+      Properties — centralised version management
+      Declaring versions here (not inline in <dependency>) means you only
+      change a version number in one place, not scattered across every dependency.
+      Reference with ${property.name} syntax below.
+      ═══════════════════════════════════════════════════════════════════
+    -->
+    <properties>
+        <!-- Java compiler version — Java 11 is the LTS baseline for Selenium 4 -->
+        <maven.compiler.source>11</maven.compiler.source>
+        <maven.compiler.target>11</maven.compiler.target>
+        <!-- Ensures consistent file encoding across platforms (Windows/Linux/macOS) -->
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+        <!-- Dependency versions — bump these to upgrade the entire framework -->
+        <selenium.version>4.18.1</selenium.version>
+        <testng.version>7.9.0</testng.version>
+        <webdrivermanager.version>5.7.0</webdrivermanager.version>
+        <extentreports.version>5.1.1</extentreports.version>
+        <log4j.version>2.23.0</log4j.version>
+    </properties>
+
+    <dependencies>
+
+        <!--
+          Selenium WebDriver — the core browser automation library.
+          selenium-java is an aggregator POM that brings in:
+            - selenium-api (core WebDriver/WebElement interfaces)
+            - selenium-chrome-driver, firefox-driver, edge-driver
+            - selenium-support (PageFactory, WebDriverWait, Select, etc.)
+        -->
+        <dependency>
+            <groupId>org.seleniumhq.selenium</groupId>
+            <artifactId>selenium-java</artifactId>
+            <version>${selenium.version}</version>
+        </dependency>
+
+        <!--
+          WebDriverManager — automatically downloads and configures browser drivers.
+          Without this library you would need to manually download chromedriver.exe,
+          geckodriver, etc. and keep them in sync with your installed browser versions.
+          WebDriverManager detects the installed browser version and fetches the
+          matching driver binary at runtime.
+        -->
+        <dependency>
+            <groupId>io.github.bonigarcia</groupId>
+            <artifactId>webdrivermanager</artifactId>
+            <version>${webdrivermanager.version}</version>
+        </dependency>
+
+        <!--
+          TestNG — the test runner / assertion library.
+          Provides @Test, @Before/AfterMethod/Suite, @Listeners, Assert, etc.
+          Chosen over JUnit because it supports:
+            - native parallel execution via testng.xml
+            - data providers for data-driven testing
+            - dependent methods and group-based test selection
+        -->
+        <dependency>
+            <groupId>org.testng</groupId>
+            <artifactId>testng</artifactId>
+            <version>${testng.version}</version>
+        </dependency>
+
+        <!--
+          ExtentReports — rich HTML test reporting library.
+          Generates a single-file, self-contained HTML report with:
+            - colour-coded pass/fail/skip status per test
+            - embedded screenshots (Base64)
+            - system info, timestamps, and log steps
+        -->
+        <dependency>
+            <groupId>com.aventstack</groupId>
+            <artifactId>extentreports</artifactId>
+            <version>${extentreports.version}</version>
+        </dependency>
+
+        <!--
+          Log4j2 — structured, performant logging framework.
+          Two artifacts are required:
+            log4j-api  — the logging API (Logger interface, LogManager)
+            log4j-core — the implementation (appenders, layouts, configuration)
+          Code only imports from log4j-api so the implementation can be swapped
+          without changing any source files (API/implementation separation).
+        -->
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-api</artifactId>
+            <version>${log4j.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-core</artifactId>
+            <version>${log4j.version}</version>
+        </dependency>
+
+        <!--
+          Apache Commons IO — utility library for file operations.
+          Used in ScreenshotUtils.capture() to copy the Selenium temp screenshot
+          file to the desired output path (FileUtils.copyFile).
+        -->
+        <dependency>
+            <groupId>commons-io</groupId>
+            <artifactId>commons-io</artifactId>
+            <version>2.15.1</version>
+        </dependency>
+
+    </dependencies>
+
+    <build>
+        <plugins>
+
+            <!--
+              Maven Compiler Plugin — configures the Java compiler.
+              Explicitly setting source/target here prevents IDEs and CI servers
+              from using their own default compiler level, which may differ.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.12.1</version>
+                <configuration>
+                    <source>11</source>
+                    <target>11</target>
+                </configuration>
+            </plugin>
+
+            <!--
+              Maven Surefire Plugin — responsible for running tests during "mvn test".
+              By default Surefire looks for classes named *Test.java / Test*.java.
+              Here we override that with our testng.xml suite file so all TestNG
+              configuration (parallel settings, groups, parameters) is respected.
+
+              systemPropertyVariables: Passes the -Dbrowser JVM system property
+              into the forked test JVM. Without this, system properties set on
+              the mvn command line are NOT visible inside the tests.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.2.5</version>
+                <configuration>
+                    <!-- Point Surefire at our TestNG suite XML instead of auto-discovery -->
+                    <suiteXmlFiles>
+                        <suiteXmlFile>src/test/resources/testng.xml</suiteXmlFile>
+                    </suiteXmlFiles>
+                    <!-- Forward -Dbrowser=firefox from CLI into the test JVM -->
+                    <systemPropertyVariables>
+                        <browser>${browser}</browser>
+                    </systemPropertyVariables>
+                </configuration>
+            </plugin>
+
+        </plugins>
+    </build>
+
+</project>
