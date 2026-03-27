@@ -5,7 +5,6 @@ import com.automation.pages.LoginPage;
 import com.automation.pages.ProductsPage;
 import com.automation.utils.ExtentReportManager;
 import org.testng.Assert;
-import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 /**
@@ -31,43 +30,15 @@ import org.testng.annotations.Test;
  */
 public class LoginTest extends BaseTest {
 
-    // Page object instance — initialised fresh before each test method.
-    // Declared as a field so all @Test methods in this class can access it.
-    private LoginPage loginPage;
+    // No instance fields for page objects — with parallel="methods" all test methods
+    // share the same class instance. A shared field would create a race condition where
+    // threads overwrite each other's page object. Page objects are created locally
+    // inside each @Test method instead (same pattern as CheckoutFlowTest).
 
-    /**
-     * Runs after BaseTest.setUp() (which opens the browser and navigates to base.url)
-     * and before each @Test method. Creates a fresh LoginPage instance.
-     *
-     * Why create the page object here and not in each test?
-     *   - Avoids repeating "loginPage = new LoginPage()" in every @Test method.
-     *   - Still gives each test its own instance (no shared mutable state).
-     *
-     * Why not in the constructor?
-     *   - The WebDriver doesn't exist yet when the constructor runs.
-     *     It is only available after BaseTest.setUp() has called DriverFactory.
-     */
-    @BeforeMethod
-    public void initPage() {
-        loginPage = new LoginPage();
-    }
-
-    // -------------------------------------------------------------------------
-    // Test cases
-    // -------------------------------------------------------------------------
-
-    /**
-     * HAPPY PATH: Valid credentials should land the user on the Products page.
-     *
-     * Uses LoginPage.login() which performs the full login sequence and returns
-     * a ProductsPage — the test immediately asserts on the returned page state.
-     * No raw locators, no driver references, no By constants in sight.
-     */
     @Test(description = "Valid credentials should navigate to the Products page",
-          groups = {"smoke"})
+          groups = {"smoke", "login"})
     public void testSuccessfulLogin() {
-        // login() encapsulates: type username → type password → click login button
-        // It returns ProductsPage because that is where a successful login lands.
+        LoginPage loginPage = new LoginPage();
         ProductsPage productsPage = loginPage.login("standard_user", "secret_sauce");
 
         String title = productsPage.getPageTitle();
@@ -77,34 +48,22 @@ public class LoginTest extends BaseTest {
                 "Expected to land on the Products page after valid login");
     }
 
-    /**
-     * NEGATIVE PATH: Invalid credentials should display an error message.
-     *
-     * We use the individual step methods (enterUsername + enterPassword + clickLoginButton)
-     * instead of login() because we don't want to return a ProductsPage —
-     * a failed login keeps the user on the LoginPage where we can assert the error.
-     */
-    @Test(description = "Invalid credentials should display an error banner")
+    @Test(description = "Invalid credentials should display an error banner",
+          groups = {"login"})
     public void testInvalidLogin() {
+        LoginPage loginPage = new LoginPage();
         loginPage.enterUsername("wrong_user");
         loginPage.enterPassword("wrong_pass");
         loginPage.clickLoginButton();
 
-        // isErrorMessageDisplayed() uses BasePage.isDisplayed(WebElement) which
-        // catches StaleElementReferenceException and returns false instead of throwing.
         Assert.assertTrue(loginPage.isErrorMessageDisplayed(),
                 "Error banner should be visible after invalid login attempt");
     }
 
-    /**
-     * EDGE CASE: A known locked-out user account should display a specific error.
-     *
-     * We assert on partial text (contains "locked out") rather than the exact full
-     * message — this makes the test resilient to minor copy/punctuation changes
-     * while still verifying the key information the user would see.
-     */
-    @Test(description = "Locked-out user account should show a 'locked out' error message")
+    @Test(description = "Locked-out user account should show a 'locked out' error message",
+          groups = {"login"})
     public void testLockedOutUser() {
+        LoginPage loginPage = new LoginPage();
         loginPage.enterUsername("locked_out_user");
         loginPage.enterPassword("secret_sauce");
         loginPage.clickLoginButton();
@@ -116,15 +75,10 @@ public class LoginTest extends BaseTest {
                 "Expected 'locked out' in error message but got: [" + errorText + "]");
     }
 
-    /**
-     * VALIDATION: Empty credentials should display an error message.
-     *
-     * Clicking login without entering anything should trigger a validation error.
-     * We only assert the error is shown — the exact text is tested in testInvalidLogin.
-     */
-    @Test(description = "Clicking login with empty fields should show a validation error")
+    @Test(description = "Clicking login with empty fields should show a validation error",
+          groups = {"login"})
     public void testEmptyCredentials() {
-        // No username or password entered — click login directly
+        LoginPage loginPage = new LoginPage();
         loginPage.clickLoginButton();
 
         Assert.assertTrue(loginPage.isErrorMessageDisplayed(),

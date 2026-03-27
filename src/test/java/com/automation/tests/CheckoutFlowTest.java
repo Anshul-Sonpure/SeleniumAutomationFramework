@@ -15,7 +15,8 @@ public class CheckoutFlowTest extends BaseTest {
     private static final String PRODUCT_1 = "Sauce Labs Backpack";
     private static final String PRODUCT_2 = "Sauce Labs Bike Light";
 
-    @Test(description = "End-to-end: login, add to cart, checkout, confirm and save order ID")
+    @Test(description = "End-to-end: login, add to cart, checkout, confirm and save order ID",
+          groups = {"smoke", "checkout"})
     public void testCompleteCheckoutFlow() {
 
         // Page objects created inside the @Test method (not @BeforeMethod) to guarantee

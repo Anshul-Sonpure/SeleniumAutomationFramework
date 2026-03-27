@@ -3,28 +3,51 @@
 
 <!--
   TestNG Suite Configuration
+  ══════════════════════════
 
   HOW TO RUN:
-    All tests:       mvn test
-    Override browser: mvn test -Dbrowser=firefox
-    Headless CI:      mvn test -Dheadless=true
+    All tests:              mvn clean test
+    Only smoke tests:       mvn test -Dgroups=smoke
+    Only login tests:       mvn test -Dgroups=login
+    Only checkout tests:    mvn test -Dgroups=checkout
+    Different browser:      mvn test -Dbrowser=firefox
+    Headless (CI):          mvn test -Dheadless=true
 
-  Browser is no longer passed as a <parameter> here.
-  It is resolved by ConfigReader in this order:
-    1. -Dbrowser=xxx  (Maven/CLI system property)
-    2. browser=       in config.properties
-    3. Default        "chrome"
+  PARALLEL STRATEGY:
+    parallel="methods" means each @Test method gets its own browser instance and
+    runs concurrently with other methods up to thread-count.
 
-  parallel="none" — tests run sequentially.
-  Required for the E2E checkout flow where each step depends on the previous one.
+    This is safe because:
+      - BaseTest.setUp() creates a FRESH driver per method (@BeforeMethod)
+      - DriverManager uses ThreadLocal so each thread has its own driver
+      - LoginTest methods are fully independent (no shared state)
+      - CheckoutFlowTest has only ONE method, so parallelism does not affect it —
+        the sequential steps inside that method (login → cart → checkout → confirm)
+        remain sequential because they execute within a single thread
 -->
-<suite name="UI Automation Suite" verbose="1" parallel="none">
+<suite name="UI Automation Suite" verbose="1" parallel="methods" thread-count="3">
 
-    <!-- TestListener logs test events to ExtentReport and Log4j2 -->
+    <!-- TestListener logs test events to both ExtentReport and Log4j2 -->
     <listeners>
         <listener class-name="com.automation.listeners.TestListener"/>
     </listeners>
 
+    <!-- ── Login Tests ───────────────────────────────────────────────────────
+         All login scenarios: valid credentials, invalid credentials,
+         locked-out user, and empty-field validation.
+         Each method is independent — safe to run in parallel.
+    ──────────────────────────────────────────────────────────────────────── -->
+    <test name="Login Tests">
+        <classes>
+            <class name="com.automation.tests.LoginTest"/>
+        </classes>
+    </test>
+
+    <!-- ── Checkout Flow ─────────────────────────────────────────────────────
+         End-to-end flow: login → add items → cart → checkout info →
+         order overview → order confirmation.
+         Single test method — steps are sequential by nature within the method.
+    ──────────────────────────────────────────────────────────────────────── -->
     <test name="Checkout Flow">
         <classes>
             <class name="com.automation.tests.CheckoutFlowTest"/>
