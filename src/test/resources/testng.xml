@@ -2,76 +2,32 @@
 <!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
 
 <!--
-  ═══════════════════════════════════════════════════════════════════════
   TestNG Suite Configuration
-  ═══════════════════════════════════════════════════════════════════════
 
   HOW TO RUN:
-    All tests:          mvn test
-    Override browser:   mvn test -Dbrowser=firefox
-    Headless CI:        mvn test -Dheadless=true
-    Single test class:  mvn test -Dtest=SampleLoginTest
+    All tests:       mvn test
+    Override browser: mvn test -Dbrowser=firefox
+    Headless CI:      mvn test -Dheadless=true
 
-  PARALLEL EXECUTION:
-    parallel="methods"  → each @Test method runs in its own thread simultaneously.
-                          DriverManager uses ThreadLocal so each thread has its own
-                          browser instance — no shared state between threads.
-    thread-count="3"    → maximum 3 tests run at the same time.
-                          Tune this based on available CPU/RAM and browser overhead.
-    Other options:
-      parallel="classes"  → each test class runs in its own thread
-      parallel="tests"    → each <test> block runs in its own thread
-      parallel="none"     → sequential execution (default)
+  Browser is no longer passed as a <parameter> here.
+  It is resolved by ConfigReader in this order:
+    1. -Dbrowser=xxx  (Maven/CLI system property)
+    2. browser=       in config.properties
+    3. Default        "chrome"
 
-  verbose="1":
-    Controls TestNG's console output verbosity (0–10).
-    1 = show test names and results; 10 = full debug output.
-  ═══════════════════════════════════════════════════════════════════════
+  parallel="none" — tests run sequentially.
+  Required for the E2E checkout flow where each step depends on the previous one.
 -->
-<suite name="UI Automation Suite" verbose="1" parallel="methods" thread-count="3">
+<suite name="UI Automation Suite" verbose="1" parallel="none">
 
-    <!--
-      Listener registration at the suite level.
-      Even if a test class doesn't extend BaseTest, the listener is still active.
-      (BaseTest also registers it via @Listeners — declaring both is safe and
-      TestNG deduplicates them automatically.)
-    -->
+    <!-- TestListener logs test events to ExtentReport and Log4j2 -->
     <listeners>
         <listener class-name="com.automation.listeners.TestListener"/>
     </listeners>
 
-    <!--
-      SMOKE TEST block — runs only tests tagged with the "smoke" group.
-      Smoke tests are a small, fast subset that verify the most critical flows.
-      Run these after every deployment to catch obvious breakages quickly.
-
-      To tag a test method: @Test(groups = {"smoke"})
-    -->
-    <test name="Smoke Tests">
-        <!-- Browser parameter is injected into BaseTest.setUp() via @Parameters -->
-        <parameter name="browser" value="chrome"/>
-        <groups>
-            <run>
-                <include name="smoke"/>
-            </run>
-        </groups>
+    <test name="Checkout Flow">
         <classes>
-            <class name="com.automation.tests.SampleLoginTest"/>
-        </classes>
-    </test>
-
-    <!--
-      REGRESSION TEST block — runs ALL test methods in the listed classes,
-      regardless of group. Execute this for a full test cycle (e.g. nightly builds).
-    -->
-    <test name="Regression Tests">
-        <parameter name="browser" value="chrome"/>
-        <classes>
-            <class name="com.automation.tests.SampleLoginTest"/>
-            <!-- Add new test classes here as the suite grows:
-            <class name="com.automation.tests.ProductPageTest"/>
-            <class name="com.automation.tests.CheckoutTest"/>
-            -->
+            <class name="com.automation.tests.CheckoutFlowTest"/>
         </classes>
     </test>
 

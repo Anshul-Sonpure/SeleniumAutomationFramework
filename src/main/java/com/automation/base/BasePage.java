@@ -1,255 +1,192 @@
 package com.automation.base;
 
 import com.automation.driver.DriverManager;
+import com.automation.utils.ConfigReader;
 import com.automation.utils.WaitUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.openqa.selenium.*;
 import org.openqa.selenium.interactions.Actions;
 import org.openqa.selenium.support.PageFactory;
+import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.Select;
+import org.openqa.selenium.support.ui.WebDriverWait;
 
+import java.time.Duration;
 import java.util.List;
+import java.util.function.Supplier;
 
-/**
- * BasePage — Foundation class for the Page Object Model (POM).
- *
- * PAGE OBJECT MODEL:
- * ───────────────────
- * Each web page (or major component) in the application under test gets its own
- * Java class. That class stores the element locators and exposes methods that
- * describe actions a user can take on that page (e.g. login(), searchProduct()).
- *
- * Benefits:
- *  • Test code is decoupled from locators — if a locator changes you fix it in
- *    one place rather than across dozens of test files.
- *  • Methods model user intent, making tests readable (loginPage.login("user","pass")).
- *  • Inheritance from BasePage gives every page object access to common helpers
- *    (click, type, getText…) without code duplication.
- *
- * WHY ABSTRACT?
- * ──────────────
- * BasePage itself is not a real page — it is a blueprint. Making it abstract
- * prevents instantiating it directly and signals that every concrete page class
- * must extend it.
- */
+// Foundation for all Page Objects — exposes wrapped Selenium interactions with built-in waits and stale-element retry.
 public abstract class BasePage {
 
-    // driver: shared across all page objects in the same thread.
-    // Fetched from DriverManager (ThreadLocal) so it is always the correct
-    // driver for the currently running test thread.
     protected final WebDriver driver;
-
-    // wait: provides explicit waits for elements — avoids hardcoded Thread.sleep().
     protected final WaitUtils wait;
-
     private static final Logger log = LogManager.getLogger(BasePage.class);
 
-    /**
-     * Constructor called by every concrete Page Object via super().
-     *
-     * PageFactory.initElements scans the subclass for fields annotated with
-     * @FindBy / @FindAll and wraps them in lazy proxies. The actual
-     * driver.findElement() call is deferred until the field is first accessed —
-     * this is called "lazy initialisation" and avoids stale element exceptions
-     * that would occur if elements were located at construction time.
-     */
+    // Retry limit on StaleElementReferenceException before re-throwing.
+    private static final int MAX_RETRIES = 2;
+
+    private static final int ACTION_DELAY_MS = ConfigReader.getInt("action.delay", 500);
+
     protected BasePage() {
         this.driver = DriverManager.getDriver();
         this.wait   = new WaitUtils(driver);
-        PageFactory.initElements(driver, this);
+        PageFactory.initElements(driver, this); // wires @FindBy fields to live DOM proxies
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Navigation helpers
-    // ─────────────────────────────────────────────────────────────────────────
+    // Retries a void action when the element goes stale mid-interaction.
+    private void retryOnStale(Runnable action) {
+        StaleElementReferenceException lastException = null;
+        for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+            try {
+                action.run();
+                return;
+            } catch (StaleElementReferenceException e) {
+                lastException = e;
+                log.warn("Stale element on attempt {}/{} — retrying...", attempt, MAX_RETRIES);
+            }
+        }
+        log.error("Element still stale after {} attempts", MAX_RETRIES);
+        throw lastException;
+    }
 
-    /**
-     * Opens the given URL in the current browser tab.
-     * Prefer calling this over driver.get() directly so navigation is logged.
-     */
+    // Retries a value-returning action when the element goes stale mid-interaction.
+    private <T> T retryOnStale(Supplier<T> action) {
+        StaleElementReferenceException lastException = null;
+        for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+            try {
+                return action.get();
+            } catch (StaleElementReferenceException e) {
+                lastException = e;
+                log.warn("Stale element on attempt {}/{} — retrying...", attempt, MAX_RETRIES);
+            }
+        }
+        log.error("Element still stale after {} attempts", MAX_RETRIES);
+        throw lastException;
+    }
+
     public void navigateTo(String url) {
         log.info("Navigating to: {}", url);
         driver.get(url);
     }
 
-    /** Returns the text inside the browser's title bar / tab. */
-    public String getTitle() {
-        return driver.getTitle();
-    }
+    public String getTitle()      { return driver.getTitle(); }
+    public String getCurrentUrl() { return driver.getCurrentUrl(); }
 
-    /** Returns the full URL currently shown in the address bar. */
-    public String getCurrentUrl() {
-        return driver.getCurrentUrl();
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Click helpers
-    // ─────────────────────────────────────────────────────────────────────────
-
-    /**
-     * Waits for the element identified by 'locator' to become clickable,
-     * then clicks it. Uses WaitUtils.forClickable() internally which applies
-     * an explicit wait — far more reliable than a plain driver.findElement().click().
-     */
     public void click(By locator) {
         log.debug("Click: {}", locator);
-        wait.forClickable(locator).click();
+        retryOnStale(() -> wait.forClickable(locator).click());
+        actionDelay();
     }
 
-    /**
-     * Overloaded click for an already-found WebElement.
-     * Still waits for clickability to guard against elements that are
-     * visible but temporarily disabled (e.g. a submit button before form loads).
-     */
     public void click(WebElement element) {
         log.debug("Click WebElement");
-        wait.forClickable(element).click();
+        retryOnStale(() -> wait.forClickable(element).click());
+        actionDelay();
     }
 
-    /**
-     * Performs a click via JavaScript — bypasses the normal browser event chain.
-     *
-     * USE CASE: Sometimes an overlay or another element sits on top of the target
-     * element and intercepts the regular click, throwing ElementClickInterceptedException.
-     * A JS click goes directly to the element's DOM node, bypassing the interception.
-     *
-     * NOTE: JS click does NOT mimic real user behaviour (no hover, no focus),
-     * so prefer the regular click() and only fall back to this when necessary.
-     */
+    // JS click bypasses overlapping elements that block the normal browser event.
     public void jsClick(WebElement element) {
         ((JavascriptExecutor) driver).executeScript("arguments[0].click();", element);
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Text input helpers
-    // ─────────────────────────────────────────────────────────────────────────
-
-    /**
-     * Clears any existing text in the input field, then types the given text.
-     * Waits for the element to be visible before interacting.
-     */
     public void type(By locator, String text) {
         log.debug("Type '{}' into: {}", text, locator);
-        WebElement el = wait.forVisible(locator);
-        el.clear();           // Remove pre-filled / previously typed text
-        el.sendKeys(text);    // Simulate keystroke-by-keystroke typing
+        retryOnStale(() -> {
+            WebElement el = wait.forVisible(locator);
+            el.clear();
+            el.sendKeys(text);
+        });
+        actionDelay();
     }
 
-    /**
-     * Overloaded type for an already-found WebElement.
-     * Waits for clickability (stronger than visibility — also ensures it's enabled).
-     */
     public void type(WebElement element, String text) {
         log.debug("Type '{}' into WebElement", text);
-        wait.forClickable(element).clear();
-        element.sendKeys(text);
+        retryOnStale(() -> {
+            wait.forClickable(element).clear();
+            element.sendKeys(text);
+        });
+        actionDelay();
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Text / attribute retrieval
-    // ─────────────────────────────────────────────────────────────────────────
+    public String getText(By locator)      { return retryOnStale(() -> wait.forVisible(locator).getText()); }
+    public String getText(WebElement el)   { return retryOnStale(() -> wait.forVisible(el).getText()); }
 
-    /**
-     * Returns the visible inner text of an element.
-     * Waits for the element to be visible first (invisible elements return "").
-     */
-    public String getText(By locator) {
-        return wait.forVisible(locator).getText();
+    public String getAttribute(By locator, String attr) {
+        return retryOnStale(() -> wait.forVisible(locator).getAttribute(attr));
     }
 
-    /** Overloaded getText for an already-found WebElement. */
-    public String getText(WebElement element) {
-        return wait.forVisible(element).getText();
-    }
-
-    /**
-     * Returns the value of an HTML attribute on the element.
-     * Example: getAttribute(By.id("logo"), "src") returns the image URL.
-     */
-    public String getAttribute(By locator, String attribute) {
-        return wait.forVisible(locator).getAttribute(attribute);
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Visibility / presence checks
-    // ─────────────────────────────────────────────────────────────────────────
-
-    /**
-     * Returns true if the element is present in the DOM and visible on the page.
-     * Returns false (instead of throwing) when the element is absent — useful for
-     * conditional logic like "if error banner is displayed, log it".
-     */
+    // Returns false instead of throwing when element is absent or stale — safe for conditional checks.
     public boolean isDisplayed(By locator) {
+        try { return driver.findElement(locator).isDisplayed(); }
+        catch (NoSuchElementException | StaleElementReferenceException e) { return false; }
+    }
+
+    public boolean isDisplayed(WebElement element) {
+        try { return element.isDisplayed(); }
+        catch (NoSuchElementException | StaleElementReferenceException e) { return false; }
+    }
+
+    public List<WebElement> findElements(By locator) { return driver.findElements(locator); }
+
+    public void selectByVisibleText(By locator, String text) {
+        retryOnStale(() -> new Select(wait.forVisible(locator)).selectByVisibleText(text));
+    }
+
+    public void selectByValue(By locator, String value) {
+        retryOnStale(() -> new Select(wait.forVisible(locator)).selectByValue(value));
+    }
+
+    public void hover(By locator) {
+        retryOnStale(() -> new Actions(driver).moveToElement(wait.forVisible(locator)).perform());
+    }
+
+    public void scrollToElement(WebElement element) {
+        ((JavascriptExecutor) driver).executeScript("arguments[0].scrollIntoView(true);", element);
+    }
+
+    public void waitForPageLoad() { wait.forPageLoad(); }
+
+    // -------------------------------------------------------------------------
+    // Native browser dialog (JS alert / confirm / prompt) handling
+    // Use these whenever the AUT triggers a window.alert(), confirm(), or prompt().
+    // Both methods are safe to call even when no dialog is present — they simply
+    // return false without throwing.
+    // -------------------------------------------------------------------------
+
+    // Accepts (clicks OK on) a JS alert/confirm dialog if one is present.
+    // Returns true if a dialog was found and accepted, false if none appeared.
+    public boolean acceptAlertIfPresent() {
         try {
-            return driver.findElement(locator).isDisplayed();
-        } catch (NoSuchElementException e) {
-            // Element not found in the DOM — treat as "not displayed"
+            Alert alert = new WebDriverWait(driver, Duration.ofSeconds(3))
+                    .until(ExpectedConditions.alertIsPresent());
+            log.info("Alert detected: '{}' — accepting", alert.getText());
+            alert.accept();
+            return true;
+        } catch (TimeoutException e) {
             return false;
         }
     }
 
-    /**
-     * Returns all elements matching the given locator.
-     * Returns an empty list (not an exception) when no elements match.
-     */
-    public List<WebElement> findElements(By locator) {
-        return driver.findElements(locator);
+    // Dismisses (clicks Cancel on) a JS confirm/prompt dialog if one is present.
+    // For plain alert() dialogs there is no Cancel — use acceptAlertIfPresent() instead.
+    // Returns true if a dialog was found and dismissed, false if none appeared.
+    public boolean dismissAlertIfPresent() {
+        try {
+            Alert alert = new WebDriverWait(driver, Duration.ofSeconds(3))
+                    .until(ExpectedConditions.alertIsPresent());
+            log.info("Alert detected: '{}' — dismissing", alert.getText());
+            alert.dismiss();
+            return true;
+        } catch (TimeoutException e) {
+            return false;
+        }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Dropdown helpers  (works with native HTML <select> elements)
-    // ─────────────────────────────────────────────────────────────────────────
-
-    /**
-     * Selects a <option> in a <select> dropdown by its visible label text.
-     * Example: selectByVisibleText(By.id("country"), "India")
-     */
-    public void selectByVisibleText(By locator, String text) {
-        new Select(wait.forVisible(locator)).selectByVisibleText(text);
-    }
-
-    /**
-     * Selects a <option> by its 'value' HTML attribute.
-     * Example: <option value="IN">India</option>  →  selectByValue(locator, "IN")
-     */
-    public void selectByValue(By locator, String value) {
-        new Select(wait.forVisible(locator)).selectByValue(value);
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Mouse / keyboard interactions
-    // ─────────────────────────────────────────────────────────────────────────
-
-    /**
-     * Moves the mouse cursor over the element without clicking it.
-     * Triggers CSS :hover states and reveals dropdown menus that only appear
-     * on hover in the application.
-     */
-    public void hover(By locator) {
-        new Actions(driver).moveToElement(wait.forVisible(locator)).perform();
-    }
-
-    /**
-     * Scrolls the page so the element is visible in the viewport.
-     * Needed before interacting with elements that are off-screen (e.g. at
-     * the bottom of a long page), as Selenium can't click invisible elements.
-     */
-    public void scrollToElement(WebElement element) {
-        ((JavascriptExecutor) driver)
-                .executeScript("arguments[0].scrollIntoView(true);", element);
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Page-level state
-    // ─────────────────────────────────────────────────────────────────────────
-
-    /**
-     * Blocks until document.readyState == "complete", meaning the HTML and
-     * synchronous JavaScript have fully loaded. Does NOT wait for async AJAX.
-     * Call this after navigations or form submissions if elements don't appear.
-     */
-    public void waitForPageLoad() {
-        wait.forPageLoad();
+    private void actionDelay() {
+        if (ACTION_DELAY_MS > 0) {
+            try { Thread.sleep(ACTION_DELAY_MS); }
+            catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+        }
     }
 }

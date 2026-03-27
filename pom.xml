@@ -34,9 +34,9 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
         <!-- Dependency versions — bump these to upgrade the entire framework -->
-        <selenium.version>4.18.1</selenium.version>
+        <selenium.version>4.33.0</selenium.version>
         <testng.version>7.9.0</testng.version>
-        <webdrivermanager.version>5.7.0</webdrivermanager.version>
+        <webdrivermanager.version>6.1.0</webdrivermanager.version>
         <extentreports.version>5.1.1</extentreports.version>
         <log4j.version>2.23.0</log4j.version>
     </properties>
@@ -124,6 +124,17 @@
             <groupId>commons-io</groupId>
             <artifactId>commons-io</artifactId>
             <version>2.15.1</version>
+        </dependency>
+
+        <!--
+          animated-gif-lib — pure-Java animated GIF encoder.
+          Used by VideoRecorder to encode screen capture frames into a GIF
+          that is then embedded in the ExtentReport HTML for visual playback.
+        -->
+        <dependency>
+            <groupId>com.madgag</groupId>
+            <artifactId>animated-gif-lib</artifactId>
+            <version>1.4</version>
         </dependency>
 
     </dependencies>

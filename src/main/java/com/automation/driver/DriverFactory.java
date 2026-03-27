@@ -12,6 +12,9 @@ import org.openqa.selenium.edge.EdgeOptions;
 import org.openqa.selenium.firefox.FirefoxDriver;
 import org.openqa.selenium.firefox.FirefoxOptions;
 
+import java.util.HashMap;
+import java.util.Map;
+
 /**
  * DriverFactory — Factory class responsible for creating and configuring
  * WebDriver instances for different browsers.
@@ -50,54 +53,67 @@ public class DriverFactory {
      */
     public static WebDriver createDriver(String browser) {
 
-        // Read headless flag once — shared by all browser branches below.
-        boolean headless = ConfigReader.getBoolean("headless", false);
+        boolean headless  = ConfigReader.getBoolean("headless",  false);
+        boolean incognito = ConfigReader.getBoolean("incognito", false);
 
         switch (browser.trim().toLowerCase()) {
 
             // ── Firefox ───────────────────────────────────────────────────────
             case "firefox": {
-                // WebDriverManager downloads geckodriver matching installed Firefox version.
                 WebDriverManager.firefoxdriver().setup();
 
                 FirefoxOptions opts = new FirefoxOptions();
-                if (headless) opts.addArguments("--headless"); // Firefox headless flag
-                log.info("Initialising FirefoxDriver (headless={})", headless);
+                if (headless)  opts.addArguments("--headless");
+                if (incognito) opts.addArguments("-private"); // Firefox private-window flag
+                log.info("Initialising FirefoxDriver (headless={}, incognito={})", headless, incognito);
                 return new FirefoxDriver(opts);
             }
 
             // ── Edge ──────────────────────────────────────────────────────────
             case "edge": {
-                // WebDriverManager downloads msedgedriver matching installed Edge version.
                 WebDriverManager.edgedriver().setup();
 
                 EdgeOptions opts = new EdgeOptions();
-                if (headless) opts.addArguments("--headless");
-                log.info("Initialising EdgeDriver (headless={})", headless);
+                if (headless)  opts.addArguments("--headless");
+                if (incognito) opts.addArguments("--inprivate"); // Edge InPrivate flag
+                log.info("Initialising EdgeDriver (headless={}, incognito={})", headless, incognito);
                 return new EdgeDriver(opts);
             }
 
             // ── Chrome (default) ──────────────────────────────────────────────
             case "chrome":
             default: {
-                // WebDriverManager downloads chromedriver matching installed Chrome version.
                 WebDriverManager.chromedriver().setup();
 
                 ChromeOptions opts = new ChromeOptions();
-                if (headless) opts.addArguments("--headless=new"); // "new" headless is the modern Chrome headless mode
+                if (headless)  opts.addArguments("--headless=new");
+                if (incognito) opts.addArguments("--incognito"); // Chrome incognito flag
 
-                // --start-maximized          → open window fully maximised (consistent viewport)
-                // --disable-notifications    → suppress "Allow notifications?" popup
-                // --no-sandbox               → required when running as root (e.g. Docker containers)
-                // --disable-dev-shm-usage    → prevents crashes in Docker due to small /dev/shm
+                // --start-maximized                → open window fully maximised (consistent viewport)
+                // --disable-notifications          → suppress "Allow notifications?" popup
+                // --no-sandbox                     → required when running as root (e.g. Docker containers)
+                // --disable-dev-shm-usage          → prevents crashes in Docker due to small /dev/shm
+                // --disable-features=...           → disables Chrome's password leak/breach detection;
+                //                                    without this Chrome shows a "password found in data
+                //                                    breach" notification bubble after login on sites that
+                //                                    use well-known test passwords (e.g. saucedemo).
                 opts.addArguments(
                         "--start-maximized",
                         "--disable-notifications",
                         "--disable-popup-blocking",
                         "--no-sandbox",
-                        "--disable-dev-shm-usage"
+                        "--disable-dev-shm-usage",
+                        "--disable-features=PasswordLeakDetection"
                 );
-                log.info("Initialising ChromeDriver (headless={})", headless);
+
+                // Disable Chrome's password manager entirely so it never prompts to save
+                // credentials or warn about breached passwords during test runs.
+                Map<String, Object> prefs = new HashMap<>();
+                prefs.put("credentials_enable_service", false);
+                prefs.put("profile.password_manager_enabled", false);
+                opts.setExperimentalOption("prefs", prefs);
+
+                log.info("Initialising ChromeDriver (headless={}, incognito={})", headless, incognito);
                 return new ChromeDriver(opts);
             }
         }
