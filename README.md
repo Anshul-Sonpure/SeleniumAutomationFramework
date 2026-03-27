@@ -155,8 +155,10 @@ mvn test -Dincognito=false
 # Disable screen recording (faster, no GIF output)
 mvn test -Dvideo.enabled=false
 
-# Run a specific TestNG group
-mvn test -Dgroups=smoke
+# Run tests by group
+mvn test -Dgroups=smoke      # smoke tests only: testSuccessfulLogin + testCompleteCheckoutFlow
+mvn test -Dgroups=login      # all 4 LoginTest methods only
+mvn test -Dgroups=checkout   # testCompleteCheckoutFlow only
 
 # Combine flags
 mvn test -Dbrowser=firefox -Dheadless=true -Dvideo.enabled=false
