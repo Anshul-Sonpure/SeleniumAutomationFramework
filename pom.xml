@@ -39,6 +39,8 @@
         <webdrivermanager.version>6.1.0</webdrivermanager.version>
         <extentreports.version>5.1.1</extentreports.version>
         <log4j.version>2.23.0</log4j.version>
+        <rest-assured.version>5.4.0</rest-assured.version>
+        <jackson.version>2.17.1</jackson.version>
     </properties>
 
     <dependencies>
@@ -135,6 +137,27 @@
             <groupId>com.madgag</groupId>
             <artifactId>animated-gif-lib</artifactId>
             <version>1.4</version>
+        </dependency>
+
+        <!--
+          REST Assured — fluent Java DSL for HTTP API testing.
+          Provides given()/when()/then() API, built-in JSON path extraction,
+          and request/response logging filters for diagnostic output.
+        -->
+        <dependency>
+            <groupId>io.rest-assured</groupId>
+            <artifactId>rest-assured</artifactId>
+            <version>${rest-assured.version}</version>
+        </dependency>
+
+        <!--
+          Jackson Databind — JSON serialisation/deserialisation for POJO models.
+          REST Assured uses Jackson automatically when it is on the classpath.
+        -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>${jackson.version}</version>
         </dependency>
 
     </dependencies>

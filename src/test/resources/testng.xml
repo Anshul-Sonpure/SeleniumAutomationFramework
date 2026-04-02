@@ -54,4 +54,25 @@
         </classes>
     </test>
 
+    <!-- ── Posts API Tests ───────────────────────────────────────────────────
+         REST Assured tests for /posts resource on JSONPlaceholder.
+         No WebDriver — BaseApiTest manages only ExtentReports lifecycle.
+         Methods are stateless HTTP calls, safe for parallel execution.
+    ──────────────────────────────────────────────────────────────────────── -->
+    <test name="Posts API Tests">
+        <classes>
+            <class name="com.automation.tests.PostsApiTest"/>
+        </classes>
+    </test>
+
+    <!-- ── Users API Tests ───────────────────────────────────────────────────
+         REST Assured tests for /users resource on JSONPlaceholder.
+         Covers nested POJO deserialization (Address, Company inner classes).
+    ──────────────────────────────────────────────────────────────────────── -->
+    <test name="Users API Tests">
+        <classes>
+            <class name="com.automation.tests.UsersApiTest"/>
+        </classes>
+    </test>
+
 </suite>

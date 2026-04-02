@@ -1,6 +1,6 @@
-# Selenium UI Automation Framework
+# Selenium UI & API Automation Framework
 
-A production-ready Java UI test automation framework built on **Selenium 4**, **TestNG**, and the **Page Object Model (POM)**. Targets [saucedemo.com](https://www.saucedemo.com) and demonstrates end-to-end test coverage with parallel execution support, rich HTML reporting, animated GIF screen recording, and full CI/CD readiness.
+A production-ready Java test automation framework built on **Selenium 4**, **REST Assured**, **TestNG**, and the **Page Object Model (POM)**. Covers both UI testing against [saucedemo.com](https://www.saucedemo.com) and REST API testing against [JSONPlaceholder](https://jsonplaceholder.typicode.com), with parallel execution, rich HTML reporting, animated GIF screen recording, and full CI/CD readiness.
 
 ---
 
@@ -16,6 +16,8 @@ A production-ready Java UI test automation framework built on **Selenium 4**, **
 | Log4j2 | 2.23.0 | Structured logging |
 | animated-gif-lib | 1.4 | Animated GIF screen recording |
 | Apache Commons IO | 2.15.1 | File utilities |
+| REST Assured | 5.4.0 | REST API testing DSL |
+| Jackson Databind | 2.17.1 | JSON serialisation / deserialisation |
 | Maven | 3.x | Build & dependency management |
 
 ---
@@ -39,6 +41,15 @@ selenium-ui-framework/
 │   │   ├── listeners/
 │   │   │   └── TestListener.java                   # Bridges TestNG events to ExtentReports & Log4j2; starts/stops VideoRecorder; embeds GIF in report
 │   │   │
+│   │   ├── api/
+│   │   │   ├── BaseApiClient.java                  # Shared RequestSpecification — base URI, JSON content-type, request/response logging filters
+│   │   │   ├── endpoints/
+│   │   │   │   ├── PostsEndpoint.java              # /posts — getAllPosts, getPostById, getPostsByUserId, createPost, updatePost, patchPost, deletePost
+│   │   │   │   └── UsersEndpoint.java              # /users — getAllUsers, getUserById, getUserByUsername, deleteUser
+│   │   │   └── models/
+│   │   │       ├── Post.java                       # POJO for /posts resource (userId, id, title, body)
+│   │   │       └── User.java                       # POJO for /users resource (with inner Address and Company classes)
+│   │   │
 │   │   ├── pages/
 │   │   │   ├── LoginPage.java                      # Login screen — enterUsername, enterPassword, login(), getErrorMessage()
 │   │   │   ├── ProductsPage.java                   # Product listing — addToCartByName(), getCartCount(), clickCart()
@@ -57,11 +68,14 @@ selenium-ui-framework/
 │   └── test/
 │       ├── java/com/automation/
 │       │   ├── base/
-│       │   │   └── BaseTest.java                   # Parent for all test classes; manages driver lifecycle + ExtentReport init/flush
+│       │   │   ├── BaseTest.java                   # Parent for all UI test classes; manages driver lifecycle + ExtentReport init/flush
+│       │   │   └── BaseApiTest.java                # Parent for all API test classes; ExtentReport lifecycle only — no WebDriver
 │       │   │
 │       │   └── tests/
 │       │       ├── LoginTest.java                  # Login scenarios: valid, invalid, locked-out, empty credentials
-│       │       └── CheckoutFlowTest.java           # E2E checkout: login → add items → cart → checkout → confirm order
+│       │       ├── CheckoutFlowTest.java           # E2E checkout: login → add items → cart → checkout → confirm order
+│       │       ├── PostsApiTest.java               # REST API tests for /posts (GET, POST, PUT, PATCH, DELETE)
+│       │       └── UsersApiTest.java               # REST API tests for /users (GET by id/username, DELETE, nested objects)
 │       │
 │       └── resources/
 │           ├── config.properties                   # All runtime configuration (browser, timeouts, flags)
@@ -83,12 +97,20 @@ selenium-ui-framework/
 
 ### Layer Overview
 
+**UI Layer:**
 ```
 Tests  →  Page Objects  →  BasePage  →  WaitUtils  →  WebDriver
   ↓                                                        ↑
 BaseTest  →  DriverFactory  →  DriverManager (ThreadLocal)
   ↓
 TestListener  →  ExtentReportManager + VideoRecorder
+```
+
+**API Layer:**
+```
+API Tests  →  Endpoint Classes  →  BaseApiClient  →  REST Assured
+    ↓                                    ↓
+BaseApiTest  →  ExtentReportManager  (no WebDriver)
 ```
 
 ### Driver Management
@@ -100,8 +122,11 @@ Every screen is a class in `com.automation.pages` that extends `BasePage`. Locat
 ### Waits
 All waits are centralised in `WaitUtils`. Use `forVisible()`, `forClickable()`, `fluent()`, etc. Never use raw `Thread.sleep` in test or page code — use `WaitUtils.hardWait()` only as a last resort.
 
+### API Testing
+`BaseApiClient` builds a shared `RequestSpecification` once (base URI, JSON content-type, `RequestLoggingFilter` + `ResponseLoggingFilter`). Endpoint classes extend it and expose typed methods returning the raw REST Assured `Response`. Test classes extend `BaseApiTest` — which handles only ExtentReport lifecycle (no WebDriver is created). The same `TestListener` covers both UI and API tests; all null-driver paths in `ScreenshotUtils` and `VideoRecorder` are already guarded, so no code changes were needed to the existing infrastructure.
+
 ### Reporting
-`ExtentReportManager` is a double-checked locking singleton that writes `test-output/reports/ExtentReport_<timestamp>.html`. `TestListener` wires every TestNG event to both Log4j2 and ExtentReport, embedding a failure screenshot and the animated GIF recording for every test.
+`ExtentReportManager` is a double-checked locking singleton that writes `test-output/reports/ExtentReport_<timestamp>.html`. `TestListener` wires every TestNG event to both Log4j2 and ExtentReport, embedding a failure screenshot and the animated GIF recording for every UI test. API tests appear in the same report with full request/response logs.
 
 ### Video Recording
 `VideoRecorder` starts a `ScheduledExecutorService` in `onTestStart` that captures the full screen at the configured FPS using `java.awt.Robot`. On test end it encodes the frames into an animated GIF (scaled to 50% for file size) and embeds it inline in the ExtentReport via a relative `<img>` tag.
@@ -126,6 +151,7 @@ All properties live in `src/test/resources/config.properties`. Every property ca
 | `video.enabled` | `true` | `-Dvideo.enabled=false` | Enable/disable GIF recording |
 | `video.fps` | `5` | | Frames per second for GIF capture |
 | `environment` | `QA` | | Label shown in the ExtentReport system info |
+| `api.base.url` | `https://jsonplaceholder.typicode.com` | | Base URL for REST Assured API tests |
 
 ---
 
@@ -155,10 +181,16 @@ mvn test -Dincognito=false
 # Disable screen recording (faster, no GIF output)
 mvn test -Dvideo.enabled=false
 
-# Run tests by group
+# Run tests by group — UI
 mvn test -Dgroups=smoke      # smoke tests only: testSuccessfulLogin + testCompleteCheckoutFlow
 mvn test -Dgroups=login      # all 4 LoginTest methods only
 mvn test -Dgroups=checkout   # testCompleteCheckoutFlow only
+
+# Run tests by group — API
+mvn test -Dgroups=api        # all 13 API tests (Posts + Users)
+mvn test -Dgroups=api,smoke  # smoke API tests only (5 tests)
+mvn test -Dgroups=posts      # PostsApiTest only (7 tests)
+mvn test -Dgroups=users      # UsersApiTest only (5 tests)
 
 # Combine flags
 mvn test -Dbrowser=firefox -Dheadless=true -Dvideo.enabled=false
@@ -191,6 +223,61 @@ The active suite is defined in `src/test/resources/testng.xml`. To add a new tes
 | Test | Description |
 |---|---|
 | `testCompleteCheckoutFlow` | End-to-end: login → add 2 items to cart → verify cart → fill checkout info → confirm order total → place order → verify confirmation message |
+
+---
+
+## API Test Coverage
+
+Demo API: [JSONPlaceholder](https://jsonplaceholder.typicode.com) — a free, public REST API for testing.
+
+### PostsApiTest (`/posts`)
+| Test | Method | Assertion |
+|---|---|---|
+| `testGetAllPosts` | `GET /posts` | Status 200, 100 posts returned |
+| `testGetPostById` | `GET /posts/1` | Status 200, correct id/userId/title/body |
+| `testGetPostByIdNotFound` | `GET /posts/9999` | Status 404 |
+| `testGetPostsByUserId` | `GET /posts?userId=1` | Status 200, 10 posts all with userId=1 |
+| `testCreatePost` | `POST /posts` | Status 201, echoed body matches, id=101 |
+| `testUpdatePost` | `PUT /posts/1` | Status 200, updated title/body reflected |
+| `testPatchPost` | `PATCH /posts/1` | Status 200, only title changed |
+| `testDeletePost` | `DELETE /posts/1` | Status 200, empty `{}` body |
+
+### UsersApiTest (`/users`)
+| Test | Method | Assertion |
+|---|---|---|
+| `testGetAllUsers` | `GET /users` | Status 200, exactly 10 users, nested address not null |
+| `testGetUserById` | `GET /users/1` | Status 200, name/username correct, nested Address and Company deserialized |
+| `testGetUserByIdNotFound` | `GET /users/9999` | Status 404 |
+| `testGetUserByUsername` | `GET /users?username=Bret` | Status 200, exactly 1 match, correct id |
+| `testDeleteUser` | `DELETE /users/1` | Status 200, empty `{}` body |
+
+---
+
+## Adding a New API Endpoint & Test
+
+1. Create a POJO in `src/main/java/com/automation/api/models/` with `@JsonIgnoreProperties(ignoreUnknown = true)` and `@JsonProperty` per field.
+2. Create an endpoint class in `src/main/java/com/automation/api/endpoints/` extending `BaseApiClient`. Each method calls `given().spec(BASE_SPEC)...` and returns `Response`.
+3. Create a test class in `src/test/java/com/automation/tests/` extending `BaseApiTest`. Instantiate the endpoint inside each `@Test` method.
+4. Register the test class in `src/test/resources/testng.xml`.
+
+```java
+public class CommentsEndpoint extends BaseApiClient {
+    public Response getCommentsByPostId(int postId) {
+        return given().spec(BASE_SPEC)
+                .queryParam("postId", postId)
+                .when().get("/comments");
+    }
+}
+
+public class CommentsApiTest extends BaseApiTest {
+    @Test(groups = {"api", "comments"})
+    public void testGetCommentsByPostId() {
+        Response response = new CommentsEndpoint().getCommentsByPostId(1);
+        response.then().statusCode(200);
+        Assert.assertEquals(response.jsonPath().getList("").size(), 5);
+    }
+}
+```
 
 ---
 
