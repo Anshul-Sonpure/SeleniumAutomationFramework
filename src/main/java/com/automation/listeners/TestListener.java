@@ -88,7 +88,10 @@ public class TestListener implements ITestListener {
         if (gifPath == null) return;
         // Relative path from test-output/reports/ to test-output/videos/
         String rel = "../videos/" + new File(gifPath).getName();
-        test.info("<div><img src='" + rel + "' style='max-width:100%;border:1px solid #555' "
+        // HTML-encode to prevent injection if the test name contains special characters
+        String safeRel = rel.replace("&", "&amp;").replace("<", "&lt;")
+                            .replace(">", "&gt;").replace("'", "&#x27;");
+        test.info("<div><img src='" + safeRel + "' style='max-width:100%;border:1px solid #555' "
                 + "alt='Test recording'/></div>");
     }
 }

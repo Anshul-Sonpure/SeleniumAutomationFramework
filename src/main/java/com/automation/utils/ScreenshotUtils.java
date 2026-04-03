@@ -12,8 +12,8 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 /**
  * ScreenshotUtils — Captures browser screenshots for failure analysis and reporting.
@@ -67,7 +67,7 @@ public class ScreenshotUtils {
             Files.createDirectories(Paths.get(SCREENSHOT_DIR));
 
             // Append a timestamp to make filenames unique per run.
-            String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+            String timestamp = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss").format(LocalDateTime.now());
             String filePath  = SCREENSHOT_DIR + testName + "_" + timestamp + ".png";
 
             // Selenium captures the screenshot into a temporary File object.

@@ -10,8 +10,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 /**
@@ -115,8 +115,9 @@ public class OrderConfirmationPage extends BasePage {
      */
     public String saveOrderDetails(String orderTotal, List<String> orderedItems) {
         // Generate a unique, human-readable Order ID using the current timestamp.
-        String orderId   = "ORD-" + new SimpleDateFormat("yyyyMMdd-HHmmss").format(new Date());
-        String dateTime  = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
+        LocalDateTime now = LocalDateTime.now();
+        String orderId   = "ORD-" + DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss").format(now);
+        String dateTime  = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").format(now);
         String status    = getConfirmationHeader();
 
         // Build the order record as a formatted text block.

@@ -37,7 +37,6 @@ public class BaseTest {
         WebDriver driver = DriverFactory.createDriver(targetBrowser);
         DriverManager.setDriver(driver);
 
-        driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(ConfigReader.getInt("implicit.wait", 5)));
         driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(ConfigReader.getInt("page.load.timeout", 30)));
         driver.manage().window().maximize();
 

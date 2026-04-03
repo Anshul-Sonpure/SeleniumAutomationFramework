@@ -3,6 +3,7 @@ package com.automation.tests;
 import com.automation.base.BaseTest;
 import com.automation.pages.LoginPage;
 import com.automation.pages.ProductsPage;
+import com.automation.utils.ConfigReader;
 import com.automation.utils.ExtentReportManager;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -39,7 +40,9 @@ public class LoginTest extends BaseTest {
           groups = {"smoke", "login"})
     public void testSuccessfulLogin() {
         LoginPage loginPage = new LoginPage();
-        ProductsPage productsPage = loginPage.login("standard_user", "secret_sauce");
+        ProductsPage productsPage = loginPage.login(
+                ConfigReader.get("app.username", "standard_user"),
+                ConfigReader.get("app.password", "secret_sauce"));
 
         String title = productsPage.getPageTitle();
         ExtentReportManager.getTest().info("Page title after login: " + title);
@@ -65,7 +68,7 @@ public class LoginTest extends BaseTest {
     public void testLockedOutUser() {
         LoginPage loginPage = new LoginPage();
         loginPage.enterUsername("locked_out_user");
-        loginPage.enterPassword("secret_sauce");
+        loginPage.enterPassword(ConfigReader.get("app.password", "secret_sauce"));
         loginPage.clickLoginButton();
 
         String errorText = loginPage.getErrorMessage();

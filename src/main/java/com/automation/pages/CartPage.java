@@ -30,7 +30,8 @@ public class CartPage extends BasePage {
     }
 
     public int getCartItemCount() {
-        return cartItems.size();
+        wait.forVisible(By.cssSelector(".cart_list"));
+        return driver.findElements(By.className("cart_item")).size();
     }
 
     public List<String> getCartItemNames() {

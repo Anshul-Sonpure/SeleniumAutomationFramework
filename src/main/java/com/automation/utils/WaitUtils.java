@@ -4,6 +4,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.openqa.selenium.By;
 import org.openqa.selenium.JavascriptExecutor;
+import org.openqa.selenium.NoSuchElementException;
 import org.openqa.selenium.StaleElementReferenceException;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
@@ -68,12 +69,13 @@ public class WaitUtils {
                 .until(ExpectedConditions.urlContains(fragment));
     }
 
-    // FluentWait with custom polling interval; broad exception ignoring suits rapidly-changing elements.
+    // FluentWait with custom polling interval; ignores transient DOM conditions.
     public WebElement fluent(By locator) {
         return new FluentWait<>(driver)
                 .withTimeout(Duration.ofSeconds(timeout))
                 .pollingEvery(Duration.ofMillis(polling))
-                .ignoring(Exception.class)
+                .ignoring(NoSuchElementException.class)
+                .ignoring(StaleElementReferenceException.class)
                 .until(d -> d.findElement(locator));
     }
 

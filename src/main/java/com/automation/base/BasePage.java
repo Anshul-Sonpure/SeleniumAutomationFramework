@@ -91,7 +91,7 @@ public abstract class BasePage {
     }
 
     public void type(By locator, String text) {
-        log.debug("Type '{}' into: {}", text, locator);
+        log.debug("Type value into: {}", locator);
         retryOnStale(() -> {
             WebElement el = wait.forVisible(locator);
             el.clear();
@@ -101,7 +101,7 @@ public abstract class BasePage {
     }
 
     public void type(WebElement element, String text) {
-        log.debug("Type '{}' into WebElement", text);
+        log.debug("Type value into WebElement");
         retryOnStale(() -> {
             wait.forClickable(element).clear();
             element.sendKeys(text);

@@ -12,9 +12,10 @@ import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
-import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -124,7 +125,12 @@ public class VideoRecorder {
     }
 
     private String encodeGif(String testName, List<BufferedImage> capturedFrames) {
-        new File(OUTPUT_DIR).mkdirs();
+        try {
+            Files.createDirectories(Paths.get(OUTPUT_DIR));
+        } catch (IOException e) {
+            log.error("Failed to create output directory '{}': {}", OUTPUT_DIR, e.getMessage());
+            return null;
+        }
         String timestamp = LocalDateTime.now().format(TS_FORMAT);
         String safeName  = testName.replaceAll("[^a-zA-Z0-9_-]", "_");
         String filePath  = OUTPUT_DIR + safeName + "_" + timestamp + ".gif";

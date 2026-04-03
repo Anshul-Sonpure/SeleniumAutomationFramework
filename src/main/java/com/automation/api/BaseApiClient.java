@@ -3,6 +3,7 @@ package com.automation.api;
 import com.automation.utils.ConfigReader;
 import io.restassured.RestAssured;
 import io.restassured.builder.RequestSpecBuilder;
+import io.restassured.filter.log.LogDetail;
 import io.restassured.filter.log.RequestLoggingFilter;
 import io.restassured.filter.log.ResponseLoggingFilter;
 import io.restassured.http.ContentType;
@@ -28,8 +29,8 @@ public class BaseApiClient {
                 .setBaseUri(baseUri)
                 .setContentType(ContentType.JSON)
                 .setAccept(ContentType.JSON)
-                .addFilter(new RequestLoggingFilter())
-                .addFilter(new ResponseLoggingFilter())
+                .addFilter(new RequestLoggingFilter(LogDetail.METHOD))
+                .addFilter(new ResponseLoggingFilter(LogDetail.STATUS))
                 .build();
     }
 

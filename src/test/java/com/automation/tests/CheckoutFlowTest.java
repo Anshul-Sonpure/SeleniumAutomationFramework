@@ -2,6 +2,7 @@ package com.automation.tests;
 
 import com.automation.base.BaseTest;
 import com.automation.pages.*;
+import com.automation.utils.ConfigReader;
 import com.automation.utils.ExtentReportManager;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -22,9 +23,11 @@ public class CheckoutFlowTest extends BaseTest {
         // Page objects created inside the @Test method (not @BeforeMethod) to guarantee
         // BaseTest.setUp() has already initialised the driver before any page is constructed.
 
-        ExtentReportManager.getTest().info("Step 1: Logging in as standard_user");
+        ExtentReportManager.getTest().info("Step 1: Logging in");
         LoginPage loginPage = new LoginPage();
-        ProductsPage productsPage = loginPage.login("standard_user", "secret_sauce");
+        ProductsPage productsPage = loginPage.login(
+                ConfigReader.get("app.username", "standard_user"),
+                ConfigReader.get("app.password", "secret_sauce"));
         Assert.assertEquals(productsPage.getPageTitle(), "Products",
                 "Step 1 FAILED — did not land on Products page after login");
         ExtentReportManager.getTest().info("Step 1 PASSED: Landed on Products page");
@@ -42,8 +45,9 @@ public class CheckoutFlowTest extends BaseTest {
         CartPage cartPage = productsPage.clickCart();
         List<String> cartItemNames = cartPage.getCartItemNames();
         ExtentReportManager.getTest().info("Items in cart: " + cartItemNames);
-        Assert.assertEquals(cartPage.getCartItemCount(), 2,
-                "Step 3 FAILED — expected 2 items in cart, got: " + cartPage.getCartItemCount());
+        int cartItemCount = cartPage.getCartItemCount();
+        Assert.assertEquals(cartItemCount, 2,
+                "Step 3 FAILED — expected 2 items in cart, got: " + cartItemCount);
         Assert.assertTrue(cartItemNames.contains(PRODUCT_1), "Step 3 FAILED — cart missing: " + PRODUCT_1);
         Assert.assertTrue(cartItemNames.contains(PRODUCT_2), "Step 3 FAILED — cart missing: " + PRODUCT_2);
         ExtentReportManager.getTest().info("Step 3 PASSED: Cart contains correct items");
