@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
+
+    <!--
+      OWASP Dependency-Check Suppression File
+      ════════════════════════════════════════
+
+      When a CVE is a false positive, or a known vulnerability does not apply
+      to this project's usage pattern, suppress it here rather than lowering
+      the failBuildOnCVSS threshold.
+
+      HOW TO ADD A SUPPRESSION:
+        1. Run: mvn dependency-check:check
+        2. Open target/dependency-check-report.html
+        3. For each false-positive CVE, add a <suppress> block below with:
+             - <notes>  why this CVE does not apply
+             - <cve>    the CVE identifier from the report (e.g. CVE-2023-12345)
+
+      EXAMPLE — suppress a specific CVE for a specific JAR:
+
+        <suppress>
+            <notes>WebDriverManager uses okhttp3 internally but we do not expose
+            its HTTP client to external input, making CVE-2023-0833 unexploitable
+            in this test-only dependency.</notes>
+            <gav regex="true">^io\.github\.bonigarcia:webdrivermanager:.*$</gav>
+            <cve>CVE-2023-0833</cve>
+        </suppress>
+
+      EXAMPLE — suppress an entire package version (use sparingly):
+
+        <suppress>
+            <notes>Animated-gif-lib is test-scope only and not deployed; this CVE
+            requires write access to the host filesystem which CI does not provide.</notes>
+            <gav regex="true">^com\.madgag:animated-gif-lib:.*$</gav>
+            <cve>CVE-XXXX-XXXXX</cve>
+        </suppress>
+    -->
+
+</suppressions>

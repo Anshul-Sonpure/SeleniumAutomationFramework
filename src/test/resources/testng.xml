@@ -75,4 +75,42 @@
         </classes>
     </test>
 
+    <!-- ── Security Header Tests ─────────────────────────────────────────────
+         REST Assured assertions verifying that the application's HTTP responses
+         include OWASP-recommended security headers (CSP, HSTS, X-Frame-Options,
+         X-Content-Type-Options) and do NOT leak technology fingerprints.
+
+         No WebDriver — uses BaseApiTest (HTTP only).
+         Run standalone: mvn test -Dgroups=headers
+    ──────────────────────────────────────────────────────────────────────── -->
+    <test name="Security Header Tests">
+        <classes>
+            <class name="com.automation.tests.SecurityHeadersTest"/>
+        </classes>
+    </test>
+
+    <!-- ── Input Validation / Injection Tests ────────────────────────────────
+         Selenium tests that submit XSS and SQL injection payloads through the
+         login form and checkout form, verifying no JS execution and no auth bypass.
+         Payloads centralised in SecurityPayloads.java.
+         Run standalone: mvn test -Dgroups=injection
+    ──────────────────────────────────────────────────────────────────────── -->
+    <test name="Input Validation Security Tests">
+        <classes>
+            <class name="com.automation.tests.InputValidationSecurityTest"/>
+        </classes>
+    </test>
+
+    <!-- ── OWASP ZAP Passive Scan ─────────────────────────────────────────────
+         Routes the Selenium browser session through OWASP ZAP proxy, browses
+         the full application, and asserts zero HIGH risk alerts from the passive scan.
+         Tests auto-skip if ZAP is not reachable.
+         Run: mvn test -Dgroups=zap -Dzap.enabled=true
+    ──────────────────────────────────────────────────────────────────────── -->
+    <test name="ZAP Passive Scan">
+        <classes>
+            <class name="com.automation.tests.ZapPassiveScanTest"/>
+        </classes>
+    </test>
+
 </suite>

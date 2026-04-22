@@ -42,6 +42,10 @@
         <rest-assured.version>5.4.0</rest-assured.version>
         <jackson.version>2.17.1</jackson.version>
         <groovy.version>4.0.16</groovy.version>
+
+        <!-- Security testing dependency versions -->
+        <zap-clientapi.version>1.14.0</zap-clientapi.version>
+        <dependency-check.version>10.0.4</dependency-check.version>
     </properties>
 
     <dependencies>
@@ -207,6 +211,24 @@
             <version>${jackson.version}</version>
         </dependency>
 
+        <!--
+          OWASP ZAP Java Client API — connects to a running ZAP daemon via its REST API.
+          Used by ZapManager to:
+            - start new ZAP sessions
+            - wait for passive scan completion
+            - retrieve alert findings (High/Medium/Low/Informational)
+            - export HTML scan reports
+
+          Requires OWASP ZAP to be installed and running separately:
+            zap.sh -daemon -port 8080 -host 0.0.0.0
+          Enable proxy routing with zap.enabled=true in config.properties.
+        -->
+        <dependency>
+            <groupId>org.zaproxy</groupId>
+            <artifactId>zap-clientapi</artifactId>
+            <version>${zap-clientapi.version}</version>
+        </dependency>
+
     </dependencies>
 
     <build>
@@ -262,6 +284,48 @@
                         <browser>${browser}</browser>
                     </systemPropertyVariables>
                 </configuration>
+            </plugin>
+
+            <!--
+              OWASP Dependency-Check — scans all declared Maven dependencies against the
+              NVD (National Vulnerability Database) and fails the build if any dependency
+              has a CVSS score at or above the configured threshold.
+
+              HOW TO RUN:
+                mvn verify                          # runs dependency check as part of verify phase
+                mvn dependency-check:check          # standalone run
+                mvn dependency-check:check -DfailBuildOnCVSS=9  # override threshold for this run
+
+              OUTPUT:
+                target/dependency-check-report.html — human-readable report with CVE details
+
+              NOTE: First run downloads the full NVD data (~200 MB) and may take 10+ minutes.
+              Subsequent runs use a local cache and complete in ~60 seconds.
+              Use an NVD API key (free at nvd.nist.gov) to avoid rate-limiting:
+                mvn dependency-check:check -DnvdApiKey=YOUR_KEY
+            -->
+            <plugin>
+                <groupId>org.owasp</groupId>
+                <artifactId>dependency-check-maven</artifactId>
+                <version>${dependency-check.version}</version>
+                <configuration>
+                    <!-- Fail the build for CVSS score >= 7 (HIGH or CRITICAL vulnerabilities) -->
+                    <failBuildOnCVSS>7</failBuildOnCVSS>
+                    <!-- Skip test-scoped dependencies (they don't ship to production) -->
+                    <skipTestScope>false</skipTestScope>
+                    <suppressionFile>src/test/resources/dependency-check-suppressions.xml</suppressionFile>
+                    <formats>
+                        <format>HTML</format>
+                        <format>JSON</format>
+                    </formats>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
 
         </plugins>

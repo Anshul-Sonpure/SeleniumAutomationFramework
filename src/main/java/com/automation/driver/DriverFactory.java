@@ -4,6 +4,7 @@ import com.automation.utils.ConfigReader;
 import io.github.bonigarcia.wdm.WebDriverManager;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.openqa.selenium.Proxy;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
@@ -40,6 +41,18 @@ public class DriverFactory {
     // Private constructor — this class only exposes a static factory method.
     private DriverFactory() {}
 
+    // Builds a Selenium Proxy pointed at ZAP when zap.enabled=true in config.
+    // --ignore-certificate-errors lets Chrome accept ZAP's self-signed HTTPS intercept cert.
+    private static Proxy buildZapProxy() {
+        String zapAddr = ConfigReader.get("zap.host", "localhost")
+                + ":" + ConfigReader.get("zap.port", "8080");
+        Proxy proxy = new Proxy();
+        proxy.setHttpProxy(zapAddr);
+        proxy.setSslProxy(zapAddr);
+        log.info("ZAP proxy configured at {}", zapAddr);
+        return proxy;
+    }
+
     /**
      * Creates a fully configured WebDriver for the requested browser.
      *
@@ -55,6 +68,7 @@ public class DriverFactory {
 
         boolean headless  = ConfigReader.getBoolean("headless",  false);
         boolean incognito = ConfigReader.getBoolean("incognito", false);
+        boolean zapEnabled = ConfigReader.getBoolean("zap.enabled", false);
 
         switch (browser.trim().toLowerCase()) {
 
@@ -63,9 +77,10 @@ public class DriverFactory {
                 WebDriverManager.firefoxdriver().setup();
 
                 FirefoxOptions opts = new FirefoxOptions();
-                if (headless)  opts.addArguments("--headless");
-                if (incognito) opts.addArguments("-private"); // Firefox private-window flag
-                log.info("Initialising FirefoxDriver (headless={}, incognito={})", headless, incognito);
+                if (headless)    opts.addArguments("--headless");
+                if (incognito)   opts.addArguments("-private");
+                if (zapEnabled)  opts.setProxy(buildZapProxy());
+                log.info("Initialising FirefoxDriver (headless={}, incognito={}, zap={})", headless, incognito, zapEnabled);
                 return new FirefoxDriver(opts);
             }
 
@@ -74,9 +89,13 @@ public class DriverFactory {
                 WebDriverManager.edgedriver().setup();
 
                 EdgeOptions opts = new EdgeOptions();
-                if (headless)  opts.addArguments("--headless");
-                if (incognito) opts.addArguments("--inprivate"); // Edge InPrivate flag
-                log.info("Initialising EdgeDriver (headless={}, incognito={})", headless, incognito);
+                if (headless)    opts.addArguments("--headless");
+                if (incognito)   opts.addArguments("--inprivate");
+                if (zapEnabled) {
+                    opts.setProxy(buildZapProxy());
+                    opts.addArguments("--ignore-certificate-errors");
+                }
+                log.info("Initialising EdgeDriver (headless={}, incognito={}, zap={})", headless, incognito, zapEnabled);
                 return new EdgeDriver(opts);
             }
 
@@ -87,7 +106,7 @@ public class DriverFactory {
 
                 ChromeOptions opts = new ChromeOptions();
                 if (headless)  opts.addArguments("--headless=new");
-                if (incognito) opts.addArguments("--incognito"); // Chrome incognito flag
+                if (incognito) opts.addArguments("--incognito");
 
                 // --start-maximized                → open window fully maximised (consistent viewport)
                 // --disable-notifications          → suppress "Allow notifications?" popup
@@ -113,7 +132,13 @@ public class DriverFactory {
                 prefs.put("profile.password_manager_enabled", false);
                 opts.setExperimentalOption("prefs", prefs);
 
-                log.info("Initialising ChromeDriver (headless={}, incognito={})", headless, incognito);
+                if (zapEnabled) {
+                    opts.setProxy(buildZapProxy());
+                    // Allow Chrome to trust ZAP's self-signed certificate for HTTPS interception.
+                    opts.addArguments("--ignore-certificate-errors");
+                }
+
+                log.info("Initialising ChromeDriver (headless={}, incognito={}, zap={})", headless, incognito, zapEnabled);
                 return new ChromeDriver(opts);
             }
         }
