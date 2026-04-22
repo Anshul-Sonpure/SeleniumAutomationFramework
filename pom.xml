@@ -41,6 +41,7 @@
         <log4j.version>2.23.0</log4j.version>
         <rest-assured.version>5.4.0</rest-assured.version>
         <jackson.version>2.17.1</jackson.version>
+        <groovy.version>4.0.16</groovy.version>
     </properties>
 
     <dependencies>
@@ -143,11 +144,57 @@
           REST Assured — fluent Java DSL for HTTP API testing.
           Provides given()/when()/then() API, built-in JSON path extraction,
           and request/response logging filters for diagnostic output.
+
+          Groovy is excluded from compile scope here (re-declared as runtime below).
+          Reason: Groovy 4.x bundles JavacJavaCompiler which initialises by accessing
+          com.sun.tools.javac.code.TypeTag::UNKNOWN — an internal javac constant removed
+          in JDK 17+. With Groovy on the compile classpath, javac (and IntelliJ's compiler)
+          crashes before compiling a single line. Groovy is only needed at runtime for
+          REST Assured's DSL execution, not during compilation of Java source files.
         -->
         <dependency>
             <groupId>io.rest-assured</groupId>
             <artifactId>rest-assured</artifactId>
             <version>${rest-assured.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.groovy</groupId>
+                    <artifactId>groovy</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.groovy</groupId>
+                    <artifactId>groovy-xml</artifactId>
+                </exclusion>
+                <exclusion>
+                    <!-- groovy-json comes via rest-assured -> json-path -> groovy-json -->
+                    <groupId>org.apache.groovy</groupId>
+                    <artifactId>groovy-json</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <!--
+          Groovy runtime — kept at runtime scope so it is available when REST Assured
+          executes its DSL, but is invisible to javac during compilation (fixing the
+          TypeTag::UNKNOWN crash on JDK 17+).
+        -->
+        <dependency>
+            <groupId>org.apache.groovy</groupId>
+            <artifactId>groovy</artifactId>
+            <version>${groovy.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.groovy</groupId>
+            <artifactId>groovy-xml</artifactId>
+            <version>${groovy.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.groovy</groupId>
+            <artifactId>groovy-json</artifactId>
+            <version>${groovy.version}</version>
+            <scope>runtime</scope>
         </dependency>
 
         <!--
@@ -177,6 +224,17 @@
                 <configuration>
                     <source>11</source>
                     <target>11</target>
+                    <!--
+                      proc=none — disables annotation processing at compile time.
+                      This project has no compile-time annotation processors:
+                        - @FindBy / @CacheLookup  → processed at runtime by PageFactory (reflection)
+                        - @Test / @BeforeMethod    → processed at runtime by TestNG
+                      Without this, IntelliJ (and Maven on JDK 17+) runs ServiceLoader-based
+                      processor discovery, which loads Groovy's JavacJavaCompiler class.
+                      That class accesses com.sun.tools.javac.code.TypeTag::UNKNOWN which
+                      was removed in JDK 17, causing ExceptionInInitializerError at compile time.
+                    -->
+                    <proc>none</proc>
                 </configuration>
             </plugin>
 

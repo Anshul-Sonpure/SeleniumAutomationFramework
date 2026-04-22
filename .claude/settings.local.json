@@ -8,7 +8,21 @@
       "Bash(mvn clean:*)",
       "Bash(del:*)",
       "Bash(mvn compile:*)",
-      "Bash(mvn test-compile:*)"
+      "Bash(mvn test-compile:*)",
+      "Bash(java:*)",
+      "Bash(mvn dependency:tree -Dincludes=org.codehaus.groovy,org.apache.groovy)",
+      "Bash(unzip:*)",
+      "Bash(javac -version)",
+      "Bash(javap -c -verbose \"org/codehaus/groovy/tools/javac/JavacJavaCompiler\")",
+      "Bash(grep -E \"javap|jar$\")",
+      "Bash(where javap:*)",
+      "Bash(powershell -Command '& { $env:JAVA_HOME }')",
+      "Bash(powershell -Command \"Get-Command javap | Select-Object -ExpandProperty Source\")",
+      "Bash(python3:*)",
+      "Bash(node -e ':*)",
+      "Bash(node:*)",
+      "Bash(mvn dependency:tree)",
+      "Bash(mvn dependency:tree -Dincludes=org.apache.groovy)"
     ]
   }
 }
