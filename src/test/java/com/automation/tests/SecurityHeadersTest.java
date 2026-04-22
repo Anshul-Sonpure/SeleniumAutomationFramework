@@ -43,7 +43,6 @@ public class SecurityHeadersTest extends BaseApiTest {
                 .when().get(targetUrl)
                 .then().extract().response();
         log.info("Security headers check — target: {} | status: {}", targetUrl, pageResponse.statusCode());
-        ExtentReportManager.getTest().info("Fetched headers from: " + targetUrl);
     }
 
     @Test(description = "X-Powered-By header should be absent — its presence leaks the server technology stack",
